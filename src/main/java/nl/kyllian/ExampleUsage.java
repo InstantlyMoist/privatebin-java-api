@@ -2,9 +2,7 @@ package nl.kyllian;
 
 import nl.kyllian.models.Paste;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 
 public class ExampleUsage {
 
@@ -18,7 +16,6 @@ public class ExampleUsage {
             System.out.println("Paste URL: " + pasteUrl);
         } catch (IOException e) {
             System.out.println("Something went wrong.");
-
             e.printStackTrace();
         }
     }

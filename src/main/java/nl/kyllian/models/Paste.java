@@ -100,6 +100,11 @@ public class Paste {
         return this;
     }
 
+    public Paste removeIps() {
+        this.message = this.message.replaceAll("(?i)\\b(?:[0-9]{1,3}\\.){3}[0-9]{1,3}\\b", "IP CENSORED");
+        return this;
+    }
+
     public Paste encrypt() {
         try {
             payload = new JSONObject();
