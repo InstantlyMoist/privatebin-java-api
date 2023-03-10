@@ -2,6 +2,10 @@ package nl.kyllian;
 
 import nl.kyllian.models.Paste;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+
 public class ExampleUsage {
 
     public static void main(String[] args) {
@@ -9,11 +13,13 @@ public class ExampleUsage {
                 .setMessage("Hi, does this work?")
                 .encrypt();
 
-        String pasteUrl = paste.send();
-        if (pasteUrl != null) {
+        try {
+            String pasteUrl = paste.send();
             System.out.println("Paste URL: " + pasteUrl);
-        } else {
+        } catch (IOException e) {
             System.out.println("Something went wrong.");
+
+            e.printStackTrace();
         }
     }
 }

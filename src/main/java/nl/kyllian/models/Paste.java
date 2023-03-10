@@ -4,14 +4,6 @@ import nl.kyllian.enums.Compression;
 import nl.kyllian.enums.Expire;
 import nl.kyllian.enums.PasteFormat;
 import nl.kyllian.utils.Base58;
-import org.apache.http.HttpEntity;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.ContentType;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -22,8 +14,10 @@ import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
+import java.io.*;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLConnection;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.SecureRandom;
@@ -184,28 +178,43 @@ public class Paste {
         return this;
     }
 
-    public String send() {
+    public String send() throws IOException {
         if (payload == null || hash.isEmpty()) throw new RuntimeException("You must encrypt the paste before sending it.");
 
-        HttpPost httpPost = new HttpPost(pasteUrl);
-        httpPost.setHeader("X-Requested-With", "JSONHttpRequest");
-        httpPost.setEntity(new StringEntity(payload.toString(), ContentType.APPLICATION_JSON));
+        String payload = this.payload.toString();
+        byte[] payloadBytes = payload.getBytes();
 
-        try (CloseableHttpClient httpClient = HttpClients.createDefault();
-             CloseableHttpResponse response = httpClient.execute(httpPost)) {
+        URL url = new URL(pasteUrl);
+        URLConnection connection = url.openConnection();
+        connection.setDoOutput(true);
+        connection.setRequestProperty("Content-Type", "application/json");
+        connection.setRequestProperty("X-Requested-With", "JSONHttpRequest");
+        connection.setRequestProperty("Content-Length", Integer.toString(payloadBytes.length));
 
-            // Parse the JSON response to get the URL of the paste
-            HttpEntity entity = response.getEntity();
-            String responseString = entity != null ? EntityUtils.toString(entity) : null;
-            JSONObject jsonResponse = new JSONObject(responseString);
-            if (!jsonResponse.has("url")) throw new RuntimeException("Failed to send paste: " + jsonResponse);
-            String receivedID = jsonResponse.getString("url");
-            if (receivedID == null) throw new RuntimeException("Failed to get paste ID from response: " + responseString);
-            return pasteUrl + receivedID + "#" + Base58.encode(hash.getBytes());
-        } catch (IOException e) {
+        try (OutputStream outputStream = connection.getOutputStream()) {
+            outputStream.write(payloadBytes);
+        }
+        catch (IOException e) {
             e.printStackTrace();
         }
-        return null;
+
+        StringBuilder responseBuilder = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                responseBuilder.append(line);
+            }
+        }
+        catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        String responseString = responseBuilder.toString();
+        JSONObject jsonResponse = new JSONObject(responseString);
+        if (!jsonResponse.has("url")) throw new RuntimeException("Failed to send paste: " + jsonResponse);
+        String receivedID = jsonResponse.getString("url");
+        if (receivedID == null) throw new RuntimeException("Failed to get paste ID from response: " + responseString);
+        return pasteUrl + receivedID + "#" + Base58.encode(hash.getBytes());
     }
 
     public byte[] attemptCompression(byte[] data) throws IOException {
