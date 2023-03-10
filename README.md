@@ -16,7 +16,7 @@ You can use this library in your own project by adding the following dependency 
 <dependency>
     <groupId>com.github.InstantlyMoist</groupId>
     <artifactId>privatebin-java-api</artifactId>
-    <version>master-SNAPSHOT</version>
+    <version>{TAG}</version>
 </dependency>
 ```
 
