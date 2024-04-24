@@ -1,11 +1,25 @@
 package nl.kyllian.models;
 
-import nl.kyllian.enums.Compression;
-import nl.kyllian.enums.Expire;
-import nl.kyllian.enums.PasteFormat;
-import nl.kyllian.utils.Base58;
-import org.json.JSONArray;
-import org.json.JSONObject;
+import static java.nio.file.Files.readAllBytes;
+
+import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.URL;
+import java.net.URLConnection;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.security.spec.KeySpec;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.List;
+import java.util.zip.Deflater;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
@@ -14,19 +28,15 @@ import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
-import java.io.*;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLConnection;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.security.SecureRandom;
-import java.security.spec.KeySpec;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.zip.Deflater;
+import javax.net.ssl.SSLContext;
 
-import static java.nio.file.Files.readAllBytes;
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import nl.kyllian.enums.Compression;
+import nl.kyllian.enums.Expire;
+import nl.kyllian.enums.PasteFormat;
+import nl.kyllian.utils.Base58;
 
 public class Paste {
     private final String pasteUrl;
@@ -44,6 +54,8 @@ public class Paste {
 
     private String hash = "";
     private JSONObject payload = null;
+    
+    private final List<String> errors = new ArrayList<>();
 
     public Paste(String pasteUrl) {
         this.pasteUrl = pasteUrl;
@@ -184,7 +196,14 @@ public class Paste {
     }
 
     public String send() throws IOException {
-        if (payload == null || hash.isEmpty()) throw new RuntimeException("You must encrypt the paste before sending it.");
+    	
+        if (payload == null || hash.isEmpty()) {
+        	String msg = "Invalid payload: " + 
+        				( payload == null ? "Paste is empty; nothing to send. " : "") +
+        				( hash.isEmpty() ? "You must encrypt the paste before sending it." : "");
+        	getErrors().add( msg );
+        	throw new RuntimeException( msg );
+        }
 
         String payload = this.payload.toString();
         byte[] payloadBytes = payload.getBytes();
@@ -200,7 +219,13 @@ public class Paste {
             outputStream.write(payloadBytes);
         }
         catch (IOException e) {
-            e.printStackTrace();
+        	String msg = String.format(
+        			"Failure in generating the output stream and sending the payload: %s  %s ",
+        			e.getMessage(),
+        			(e.getCause() == null ? "" : e.getCause().getMessage()) );
+        	
+        	getErrors().add( msg );
+//            e.printStackTrace();
         }
 
         StringBuilder responseBuilder = new StringBuilder();
@@ -211,15 +236,57 @@ public class Paste {
             }
         }
         catch (IOException e) {
-            e.printStackTrace();
+        	String msg = String.format(
+        			"Failure in reading the response: %s  %s ",
+        			e.getMessage(),
+        			(e.getCause() == null ? "" : e.getCause().getMessage()) );
+        	
+        	getErrors().add( msg );
+
+//            e.printStackTrace();
         }
 
         String responseString = responseBuilder.toString();
-        JSONObject jsonResponse = new JSONObject(responseString);
-        if (!jsonResponse.has("url")) throw new RuntimeException("Failed to send paste: " + jsonResponse);
-        String receivedID = jsonResponse.getString("url");
-        if (receivedID == null) throw new RuntimeException("Failed to get paste ID from response: " + responseString);
-        return pasteUrl + receivedID + "#" + Base58.encode(hash.getBytes());
+        if ( responseString.length() > 0 ) {
+        	
+        	JSONObject jsonResponse = new JSONObject(responseString);
+        	if (!jsonResponse.has("url")) throw new RuntimeException("Failed to send paste: " + jsonResponse);
+        	String receivedID = jsonResponse.getString("url");
+        	if (receivedID == null) throw new RuntimeException("Failed to get paste ID from response: " + responseString);
+        	return pasteUrl + receivedID + "#" + Base58.encode(hash.getBytes());
+        }
+        else {
+        	getErrors().add( "Failure with response: No response.");
+        }
+        
+        
+        boolean errTypeProtocolVersion = false;
+        for (String err : getErrors()) {
+			if ( err.contains("protocol_version") ) {
+				errTypeProtocolVersion = true;
+			}
+		}
+        if ( errTypeProtocolVersion ) {
+        	String javaVersion = Paste.getJavaVersion();
+    		String tlsVersions = Paste.getTlsVersions();
+    		
+        	getErrors().add( "Warning: There was a Paste failure that identified that there "
+        			+ "was a 'protocol_version' issue.  This may be related to an "
+        			+ "out of date use of a TLS protocol." );
+        	
+        	if ( javaVersion.contains("1.8") && !tlsVersions.contains("TLSv1.3") ) {
+        		getErrors().add( "WARNING: You are using a version of Java 1.8 that does not " +
+        					"support TLSv1.3. You have to upgrade to a newer release of Java 1.8 " +
+        				    "that does support TLSv1.3, such as java 1.8.0_411 or newer." );
+        	}
+        }
+        
+        // Dump all errors to errout:
+        for (String err : getErrors()) {
+			System.err.println( err );
+		}
+        
+        return null;
     }
 
     public byte[] attemptCompression(byte[] data) throws IOException {
@@ -242,4 +309,36 @@ public class Paste {
 
         return Arrays.copyOfRange(output, 2, output.length - 4);
     }
+    
+    public static String getJavaVersion() {
+    	String javaVersion = System.getProperty("java.version");
+    	return javaVersion;
+    }
+
+    public static String getTlsVersions() {
+    	String tlsVersions = "";
+		
+        try {
+			SSLContext context = SSLContext.getInstance("TLS");
+			context.init(null, null, null);
+			String[] supportedProtocols = context.getDefaultSSLParameters().getProtocols();
+			tlsVersions = Arrays.toString(supportedProtocols);
+		} 
+        catch (KeyManagementException e) {
+			System.err.println( e.getMessage() );
+		} 
+        catch (NoSuchAlgorithmException e) {
+			System.err.println( e.getMessage() );
+		}
+        
+        // Test to remove TLSv1.3:
+        tlsVersions = tlsVersions.replace("TLSv1.3", "TLSv0.1");
+        
+        return tlsVersions;
+    }
+    
+	public List<String> getErrors() {
+		return errors;
+	}
+    
 }

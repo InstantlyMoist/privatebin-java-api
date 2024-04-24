@@ -31,8 +31,25 @@ You can use this library in your own project by adding the following dependency 
         String pasteUrl = paste.send();
         if (pasteUrl != null) {
             System.out.println("Paste URL: " + pasteUrl);
-        } else {
+        } 
+        else {
             System.out.println("Something went wrong.");
+        }
+        
+        if ( paste.getErrors().size() > 0 ) {
+            for ( String err : getErrors() ) {
+                System.err.println( err );
+            }
         }
     }
 ```
+
+# Notice about Java 1.8
+
+In order for this library to work under Java 1.8, and with the latest version of
+privatebin (v1.7.1), Java must support TLSv1.3, which may not be supported in older
+releases of 1.8.  
+
+It's been confirmed that Java v1.8.0_411 supports TLSv1.3, so if you are seeing
+'protocol_version' errors, then try upgrading to the latest version of 1.8.
+
