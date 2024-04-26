@@ -20,6 +20,11 @@ You can use this library in your own project by adding the following dependency 
 </dependency>
 ```
 
+To build this library, run `maven package` to generate the jar file, where the version
+can be set within the project's `pom.xml` file under `project.version`.
+`/privatebin-java-api/target/PrivateBin-java-<version>.jar
+
+
 # Example usage
 
 ```java

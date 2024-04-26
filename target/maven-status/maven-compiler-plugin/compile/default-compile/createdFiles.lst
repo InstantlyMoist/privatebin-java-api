@@ -1,6 +1,6 @@
 nl\kyllian\utils\Base58.class
-nl\kyllian\enums\Compression.class
-nl\kyllian\ExampleUsage.class
 nl\kyllian\models\Paste.class
 nl\kyllian\enums\PasteFormat.class
+nl\kyllian\enums\Compression.class
+nl\kyllian\ExampleUsage.class
 nl\kyllian\enums\Expire.class

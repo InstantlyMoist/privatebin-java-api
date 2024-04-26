@@ -331,9 +331,6 @@ public class Paste {
 			System.err.println( e.getMessage() );
 		}
         
-        // Test to remove TLSv1.3:
-        tlsVersions = tlsVersions.replace("TLSv1.3", "TLSv0.1");
-        
         return tlsVersions;
     }
     

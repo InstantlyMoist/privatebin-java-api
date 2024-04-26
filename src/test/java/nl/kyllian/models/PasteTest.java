@@ -2,13 +2,6 @@ package nl.kyllian.models;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import java.io.IOException;
-import java.security.KeyManagementException;
-import java.security.NoSuchAlgorithmException;
-import java.util.Arrays;
-
-import javax.net.ssl.SSLContext;
-
 import org.junit.jupiter.api.Test;
 
 import nl.kyllian.enums.Expire;
