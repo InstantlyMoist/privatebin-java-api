@@ -274,6 +274,9 @@ public class Paste {
         			+ "was a 'protocol_version' issue.  This may be related to an "
         			+ "out of date use of a TLS protocol." );
         	
+        	getErrors().add( javaVersion );
+        	getErrors().add( tlsVersions );
+        	
         	if ( javaVersion.contains("1.8") && !tlsVersions.contains("TLSv1.3") ) {
         		getErrors().add( "WARNING: You are using a version of Java 1.8 that does not " +
         					"support TLSv1.3. You have to upgrade to a newer release of Java 1.8 " +
