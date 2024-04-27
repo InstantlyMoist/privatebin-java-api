@@ -93,19 +93,13 @@ javax.net.ssl.SSLHandshakeException: Received fatal alert: protocol_version
         			e.getMessage(),
         			(e.getCause() == null ? "" : e.getCause().getMessage()) );
 			System.err.println( msg );
-
 		}
 
-        for ( String err : paste.getErrors() ) {
-        	System.err.println( err );
-		}
-        
         System.out.println( String.format(
         		"PasteTest: \n  url: %s \n  pasteUrl: %s \n  password: %s", 
         		url, pasteUrl, password ) );
         
         assertNotNull( pasteUrl );
-
 		
 	}
 
